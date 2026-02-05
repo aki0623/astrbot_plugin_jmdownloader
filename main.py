@@ -9,7 +9,7 @@ from pathlib import Path
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
-from astrbot.api import logger
+from astrbot.api import logger, AstrBotConfig
 
 # 插件数据目录名（用于存储下载文件与收藏数据）
 PLUGIN_DATA_DIR_NAME = "astrbot_plugin_jmdownloader"
@@ -181,14 +181,72 @@ def _download_album_to_pdf(album_id: str, base_dir: str):
     "1.0.0",
 )
 class JMDownloaderPlugin(Star):
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, config: AstrBotConfig | None = None):
         super().__init__(context)
+        # 插件配置（来自 _conf_schema.json）
+        self.config: AstrBotConfig = config or AstrBotConfig({})
+
+    # ---------------- 配置读取工具 ----------------
+
+    def _get_cmd_conf(self, key: str, default: str) -> str:
+        """从配置中读取指令关键字，若不存在则使用默认值"""
+        try:
+            value = self.config.get(key, default)
+        except Exception:
+            value = default
+        if not isinstance(value, str):
+            return default
+        return value.strip()
 
     async def initialize(self):
         """插件初始化时确保插件数据目录存在"""
         path = _get_plugin_data_path()
         path.mkdir(parents=True, exist_ok=True)
         (path / "pdf").mkdir(exist_ok=True)
+
+    # ---------------- 自定义指令入口（根据配置解析普通文本） ----------------
+
+    @filter.event_message_type(filter.EventMessageType.ALL)
+    async def on_custom_command(self, event: AstrMessageEvent):
+        """
+        支持用户在插件配置中自定义指令关键字。
+        例如配置 download_cmd=JMDown，则发送 “JMDown 123456” 也会触发下载。
+        """
+        message = (event.message_str or "").strip()
+        if not message:
+            return
+
+        # 去掉前导斜杠，兼容 “/cmd xxx” 和 “cmd xxx”
+        if message.startswith("/"):
+            message = message[1:].strip()
+
+        parts = message.split(maxsplit=1)
+        cmd = parts[0]
+        arg = parts[1] if len(parts) > 1 else ""
+
+        # 从配置中获取各个自定义指令关键字
+        download_cmd = self._get_cmd_conf("download_cmd", "JMD")
+        fav_add_cmd = self._get_cmd_conf("fav_add_cmd", "jmsc")
+        fav_query_cmd = self._get_cmd_conf("fav_query_cmd", "jmcx")
+        fav_random_cmd = self._get_cmd_conf("fav_random_cmd", "jmsj")
+        fav_delete_cmd = self._get_cmd_conf("fav_delete_cmd", "jmde")
+
+        # 大小写不敏感匹配
+        low_cmd = cmd.lower()
+
+        try:
+            if low_cmd == download_cmd.lower():
+                await self.cmd_jmd(event, arg)
+            elif low_cmd == fav_add_cmd.lower():
+                await self.cmd_jmsc(event, arg)
+            elif low_cmd == fav_query_cmd.lower():
+                await self.cmd_jmcx(event, arg)
+            elif low_cmd == fav_random_cmd.lower():
+                await self.cmd_jmsj(event)
+            elif low_cmd == fav_delete_cmd.lower():
+                await self.cmd_jmde(event, arg)
+        except Exception as e:
+            logger.warning(f"处理自定义指令出错：{e}")
 
     @filter.command("JMD", alias={"jmd", "jmdown"})
     async def cmd_jmd(self, event: AstrMessageEvent, jm_id: str):

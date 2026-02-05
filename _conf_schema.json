@@ -1,0 +1,28 @@
+{
+  "download_cmd": {
+    "description": "下载漫画指令关键字（不含斜杠），例如 JMD",
+    "type": "string",
+    "default": "JMD"
+  },
+  "fav_add_cmd": {
+    "description": "收藏漫画指令关键字（不含斜杠），例如 jmsc",
+    "type": "string",
+    "default": "jmsc"
+  },
+  "fav_query_cmd": {
+    "description": "查询漫画信息指令关键字（不含斜杠），例如 jmcx",
+    "type": "string",
+    "default": "jmcx"
+  },
+  "fav_random_cmd": {
+    "description": "随机推荐漫画指令关键字（不含斜杠），例如 jmsj",
+    "type": "string",
+    "default": "jmsj"
+  },
+  "fav_delete_cmd": {
+    "description": "删除收藏漫画指令关键字（不含斜杠），例如 jmde",
+    "type": "string",
+    "default": "jmde"
+  }
+}
+
